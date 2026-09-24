@@ -1,26 +1,26 @@
-# ✈️ جانمون — Telegram Flight Bot (n8n)
+# ✈️ Janamoon — Telegram Flight Bot (n8n)
 
-ربات تلگرامی برای پیدا کردن ارزان‌ترین بلیط هواپیما در ۳ روز آینده.
-کاربر مبدأ و مقصد را می‌گوید، ربات ارزان‌ترین پروازها را پیدا می‌کند و با دکمه «لینک خرید» کاربر را به صفحه‌ی همان پرواز در سایت فروش می‌برد.
+A Telegram bot that finds the **cheapest flights for the next 3 days**.
+The user sends an origin and destination, the bot returns the best-priced flights, and a **Buy link** button opens that exact flight on the booking site.
 
-> ربات بلیط نمی‌فروشد؛ فقط جست‌وجو می‌کند. پروژه‌ی آموزشی/نمونه‌کار برای ساخت ربات و خودکارسازی با n8n.
+> The bot doesn't sell tickets, it only searches. Built as a portfolio project to practice bot building and automation with n8n.
 
 ## Features
-- 🔎 جست‌وجوی ارزان‌ترین پرواز داخلی و خارجی (از/به ایران)
-- 📅 بازه‌ی ۳ روز آینده
-- 💬 رابط کاربری تلگرام
-- 🔗 دکمه‌ی لینک خرید
+- 🔎 Cheapest-flight search, domestic and international (to/from Iran)
+- 📅 3-day search window
+- 💬 Chat-first Telegram interface
+- 🔗 One-tap "Buy link" button
 
 ## Stack
-n8n · Telegram Bot API · HTTP Request · Code node (JavaScript)
+n8n · Telegram Bot API · HTTP Request · JavaScript (Code node)
 
 ## Setup
-1. در n8n: **Workflows → Import from file** و فایل `janemoon-flight-bot.workflow.json` را انتخاب کنید.
-2. از [@BotFather](https://t.me/BotFather) یک توکن بسازید.
-3. در نود **Config** مقدار `YOUR_TELEGRAM_BOT_TOKEN` را با توکن خودتان عوض کنید و credential تلگرام را در نودهای Telegram وصل کنید.
-4. Workflow را Activate کنید.
+1. In n8n: **Workflows → Import from file** and select `janamoon-flight-bot.workflow.json`.
+2. Create a bot token with [@BotFather](https://t.me/BotFather).
+3. In the **Config** node, replace `YOUR_TELEGRAM_BOT_TOKEN` with your token and connect the Telegram credential in the Telegram nodes.
+4. Activate the workflow.
 
-⚠️ توکن واقعی را هرگز داخل ریپو commit نکنید.
+⚠️ Never commit a real bot token to the repo.
 
 ## Author
 Mahdi Jalambadani — [@Mehdi-777](https://github.com/Mehdi-777)
