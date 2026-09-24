@@ -1,0 +1,140 @@
+{
+  "name": "جانمون - Telegram Flight Bot",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {}
+      },
+      "id": "3569d143-7f94-49a8-ad65-99239f0ea25a",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        48,
+        672
+      ],
+      "webhookId": "f9c5cab4-df3e-4113-98ce-784bad8fb190",
+      "credentials": {
+        "telegramApi": {
+          "id": "6n3F5JEqKwnNVh0Z",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "botTokenField",
+              "name": "botToken",
+              "value": "YOUR_TELEGRAM_BOT_TOKEN",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "9cea0b87-f6e5-4e13-8147-1db64f54f711",
+      "name": "Config",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        304,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// ================== جانمون - مغز ربات (همه‌ی منطق اینجاست) ==================\n// این کد دقیقاً همون منطقیه که توی پیش‌نمایش HTML با داده‌ی واقعی تست شده.\n// ورودی: آپدیت خام تلگرام (از نود Telegram Trigger) + botToken (از نود Config)\n// خروجی: یک آیتم به‌ازای هر پیامی که باید به تلگرام فرستاده بشه\n\nconst update = $input.first().json;\nconst BOT_TOKEN = update.botToken;\n\n// ---------------- دیتابیس شهرها ----------------\n// city, airport name (optional), extra search keys, intl(true/false)\nconst RAW = [\n  ['تهران', 'مهرآباد', ['tehran', 'thr', 'mehrabad'], false],\n  ['تهران', 'امام خمینی', ['tehran', 'ika', 'imam', 'امام'], false],\n  ['مشهد', 'شهید هاشمی‌نژاد', ['mashhad', 'mhd'], false],\n  ['شیراز', 'شهید دستغیب', ['shiraz', 'syz'], false],\n  ['اصفهان', 'شهید بهشتی', ['isfahan', 'esfahan', 'ifn'], false],\n  ['تبریز', 'شهید مدنی', ['tabriz', 'tbz'], false],\n  ['کیش', '', ['kish', 'kih'], false],\n  ['اهواز', '', ['ahvaz', 'awz'], false],\n  ['بندرعباس', '', ['bandarabbas', 'bnd'], false],\n  ['قشم', '', ['qeshm', 'gsm'], false],\n  ['رشت', '', ['rasht', 'ras'], false],\n  ['ساری', '', ['sari', 'sry'], false],\n  ['کرمان', '', ['kerman', 'ker'], false],\n  ['یزد', '', ['yazd', 'azd'], false],\n  ['ارومیه', '', ['urmia', 'omh'], false],\n  ['کرمانشاه', '', ['kermanshah', 'ksh'], false],\n  ['زاهدان', '', ['zahedan', 'zah'], false],\n  ['بوشهر', '', ['bushehr', 'buz'], false],\n  ['اردبیل', '', ['ardabil', 'adu'], false],\n  ['استانبول', 'فرودگاه استانبول', ['istanbul', 'ist'], true],\n  ['استانبول', 'صبیحه گوکچن', ['istanbul', 'saw', 'sabiha'], true],\n  ['آنکارا', '', ['ankara', 'esb'], true],\n  ['آنتالیا', '', ['antalya', 'ayt'], true],\n  ['دبی', '', ['dubai', 'dxb'], true],\n  ['شارجه', '', ['sharjah', 'shj'], true],\n  ['مسقط', '', ['muscat', 'mct'], true],\n  ['دوحه', '', ['doha', 'doh'], true],\n  ['مسکو', '', ['moscow', 'svo'], true],\n  ['باکو', '', ['baku', 'gyd'], true],\n  ['تفلیس', '', ['tbilisi', 'tbs'], true],\n  ['ایروان', '', ['yerevan', 'evn'], true],\n  ['نجف', '', ['najaf', 'njf'], true],\n  ['بغداد', '', ['baghdad', 'bgw'], true],\n  ['اربیل', '', ['erbil', 'ebl'], true],\n  ['کابل', '', ['kabul', 'kbl'], true],\n  ['بانکوک', '', ['bangkok', 'bkk'], true],\n  ['کوالالامپور', '', ['kualalumpur', 'kul'], true],\n];\nconst QUICK = ['تهران', 'مشهد', 'شیراز', 'اصفهان', 'تبریز', 'کیش'];\nconst QUICK_INTL = ['استانبول', 'دبی', 'مسکو', 'باکو', 'تفلیس', 'ایروان'];\nconst QUICK_ORIGIN_INTL = ['تهران', 'مشهد', 'استانبول', 'دبی', 'مسکو', 'باکو'];\n\nfunction norm(s) {\n  return String(s).toLowerCase()\n    .replace(/[ً-ٟـ]/g, '')\n    .replace(/[يى]/g, 'ی').replace(/ك/g, 'ک')\n    .replace(/[أإآ]/g, 'ا').replace(/ة/g, 'ه').replace(/ؤ/g, 'و')\n    .replace(/[‌‍\\s\\-_.]/g, '');\n}\nfunction lev(a, b) {\n  const m = a.length, n = b.length;\n  if (!m) return n;\n  if (!n) return m;\n  let prev = [];\n  for (let j = 0; j <= n; j++) prev[j] = j;\n  for (let i = 1; i <= m; i++) {\n    const cur = [i];\n    for (let j = 1; j <= n; j++) {\n      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));\n    }\n    prev = cur;\n  }\n  return prev[n];\n}\nconst cityCount = {};\nRAW.forEach(function (r) { cityCount[r[0]] = (cityCount[r[0]] || 0) + 1; });\nconst AIRPORTS = RAW.map(function (r) {\n  const city = r[0], name = r[1];\n  const keys = [norm(city)];\n  if (name) { keys.push(norm(name)); keys.push(norm(city + name)); }\n  r[2].forEach(function (x) { keys.push(norm(x)); });\n  return { city: city, keys: keys, intl: r[3] === true };\n});\nfunction isIntlCity(city) {\n  const a = AIRPORTS.find(function (x) { return x.city === city; });\n  return !!(a && a.intl);\n}\nfunction score(q, keys) {\n  let best = 99;\n  keys.forEach(function (s) {\n    if (s === q) best = Math.min(best, 0);\n    else if (s.startsWith(q)) best = Math.min(best, 1);\n    else if (s.includes(q)) best = Math.min(best, 2);\n    else if (q.length >= 3) {\n      const maxD = q.length >= 6 ? 2 : 1;\n      const d = Math.min(lev(q, s.slice(0, q.length)), lev(q, s));\n      if (d <= maxD) best = Math.min(best, 3 + d);\n    }\n  });\n  return best;\n}\n// خروجی: لیست اسم شهرهای منحصربه‌فرد (بدون تفکیک فرودگاه، برای سادگی دکمه‌های تلگرام)\nfunction searchCities(text, session) {\n  const q = norm(text);\n  if (!q) return [];\n  const scored = [];\n  AIRPORTS.forEach(function (a, i) { const sc = score(q, a.keys); if (sc < 99) scored.push({ a: a, sc: sc, i: i }); });\n  scored.sort(function (x, y) { return x.sc - y.sc || x.i - y.i; });\n  const seen = {};\n  const out = [];\n  for (const s of scored) {\n    if (session.tripType === 'domestic' && s.a.intl) continue;\n    if (seen[s.a.city]) continue;\n    seen[s.a.city] = true;\n    out.push(s.a.city);\n    if (out.length >= 5) break;\n  }\n  return out;\n}\n\n// ---------------- کد فرودگاه‌ها ----------------\nconst CODES = {\n  'تهران': 'THR', 'مشهد': 'MHD', 'شیراز': 'SYZ', 'اصفهان': 'IFN', 'تبریز': 'TBZ', 'کیش': 'KIH',\n  'اهواز': 'AWZ', 'بندرعباس': 'BND', 'قشم': 'GSM', 'رشت': 'RAS', 'ساری': 'SRY', 'کرمان': 'KER',\n  'یزد': 'AZD', 'ارومیه': 'OMH', 'کرمانشاه': 'KSH', 'زاهدان': 'ZAH', 'بوشهر': 'BUZ', 'اردبیل': 'ADU',\n};\nconst INTL_CODES = {\n  'استانبول': 'IST', 'آنکارا': 'ESB', 'آنتالیا': 'AYT', 'دبی': 'DXB', 'شارجه': 'SHJ',\n  'مسقط': 'MCT', 'دوحه': 'DOH', 'مسکو': 'SVO', 'باکو': 'GYD', 'تفلیس': 'TBS',\n  'ایروان': 'EVN', 'نجف': 'NJF', 'بغداد': 'BGW', 'اربیل': 'EBL', 'کابل': 'KBL',\n  'بانکوک': 'BKK', 'کوالالامپور': 'KUL',\n};\nfunction flightCityCode(city, tripType) {\n  if (isIntlCity(city)) return INTL_CODES[city] || null;\n  if (city === 'تهران' && tripType === 'international') return 'IKA'; // پروازهای خارجی فقط از امام‌خمینی\n  return CODES[city] || null;\n}\n\n// ---------------- تاریخ واقعی (شمسی + میلادی) ----------------\nfunction tehranNow() {\n  return new Date(new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Tehran' }).replace(' ', 'T') + 'Z');\n}\nfunction targetDates() {\n  const now = tehranNow();\n  const start = new Date(now);\n  if (now.getUTCHours() >= 21) start.setUTCDate(start.getUTCDate() + 1);\n  start.setUTCHours(12, 0, 0, 0);\n  const out = [];\n  for (let i = 0; i < 3; i++) {\n    const d = new Date(start);\n    d.setUTCDate(d.getUTCDate() + i);\n    const iso = d.toISOString().slice(0, 10);\n    const p = new Intl.DateTimeFormat('en-US-u-ca-persian-nu-latn', { timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(d);\n    const g = t => p.find(x => x.type === t).value;\n    const shamsi = `${g('year')}-${g('month')}-${g('day')}`;\n    const label = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }).format(d);\n    out.push({ iso, shamsi, label });\n  }\n  return out;\n}\nfunction toAbsoluteMs(depStr) {\n  return depStr.indexOf('+') >= 0 ? new Date(depStr).getTime() : new Date(depStr + '+03:30').getTime();\n}\nfunction pickWinner(candidates) {\n  const valid = candidates.filter(function (x) { return !!x; });\n  if (!valid.length) return null;\n  valid.sort(function (x, y) { return (x.toman - y.toman) || (y.seats - x.seats); });\n  return valid[0];\n}\nconst faDigits = s => String(s).replace(/\\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);\nconst fmtToman = n => Math.round(n).toLocaleString('fa-IR').replace(/٬/g, '،');\n\n// ---------------- درخواست به سه سایت (دقیقاً همون endpointهای تست‌شده) ----------------\nasync function fetchAlibaba(origin, dest) {\n  const data = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://ws.alibaba.ir/api/v2/flights/domestic/available/cheapest',\n    headers: { 'Content-Type': 'application/json' },\n    body: { origin, destination: dest, backwardDay: 0, forwardDay: 5, referenceDate: new Date().toISOString() },\n    json: true,\n  });\n  return (data && data.result) || [];\n}\nfunction alibabaForDate(items, day, origin, dest) {\n  const row = items.find(r => r.departureDateTime && r.departureDateTime.slice(0, 10) === day.iso);\n  if (!row || !row.adultPrice) return null;\n  return {\n    toman: row.adultPrice / 10, dep: row.departureDateTime, arr: row.arrivalTime, seats: row.capacity,\n    link: `https://www.alibaba.ir/flights/${origin}-${dest}?adult=1&child=0&infant=0&departing=${day.shamsi}`,\n  };\n}\nasync function fetchFlytodayForDate(origin, dest, day, isDomestic) {\n  const data = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://www.flytoday.ir/api/gateway/v1/Flight/SplittedSearch?sortBy=Cheapest&pageNumber=1&pageSize=25',\n    headers: { 'Content-Type': 'application/json' },\n    body: {\n      adultCount: 1, childCount: 0, infantCount: 0, isJalali: true,\n      originDestinationInformations: [{ departureDateTime: day.iso, destinationLocationCode: dest, destinationType: 'City', originLocationCode: origin, originType: 'City' }],\n      pricingSourceType: 0,\n      travelPreference: { cabinType: 'Y', maxStopsQuantity: 'All', airTripType: 'OneWay' },\n    },\n    json: true,\n  });\n  const items = (data && data.pricedItineraries) || [];\n  if (!items.length) return null;\n  let cheapest = items[0];\n  for (const it of items) {\n    if (it.airItineraryPricingInfo.itinTotalFare.totalFare < cheapest.airItineraryPricingInfo.itinTotalFare.totalFare) cheapest = it;\n  }\n  const seg = cheapest.originDestinationOptions[0].flightSegments[0];\n  return {\n    toman: cheapest.airItineraryPricingInfo.itinTotalFare.totalFare / 10,\n    dep: seg.departureDateTime,\n    arr: seg.arrivalDateTime,\n    seats: seg.seatsRemaining,\n    link: `https://www.flytoday.ir/flight/search?departure=${origin.toLowerCase()},1&arrival=${dest.toLowerCase()},1&departureDate=${day.iso}&adt=1&chd=0&inf=0&cabin=1&isDomestic=${isDomestic === false ? 'false' : 'true'}&isAnyWhere=false`,\n  };\n}\nasync function fetchMrbilitForDate(origin, dest, day) {\n  const data = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'https://flight.atighgasht.com/api/Flights',\n    headers: { 'Content-Type': 'application/json' },\n    body: {\n      AdultCount: 1, ChildCount: 0, InfantCount: 0, CabinClass: 'All', Baggage: true,\n      IncludeFlightsWithHigherCapacity: true,\n      Routes: [{ OriginCode: origin, DestinationCode: dest, DepartureDate: day.iso }],\n    },\n    json: true,\n  });\n  const flights = (data && data.Flights) || [];\n  let best = null;\n  flights.forEach(function (f) {\n    const leg = f.Segments && f.Segments[0] && f.Segments[0].Legs && f.Segments[0].Legs[0];\n    if (!leg || leg.FlightStatus !== 'Ok') return;\n    (f.Prices || []).forEach(function (p) {\n      const adl = (p.PassengerFares || []).filter(function (x) { return x.PaxType === 'ADL'; })[0];\n      if (!adl) return;\n      if (!best || adl.TotalFare < best.rial) best = { rial: adl.TotalFare, dep: leg.DepartureTime, arr: leg.ArrivalTime, seats: p.Capacity };\n    });\n  });\n  if (!best) return null;\n  return {\n    toman: best.rial / 10, dep: best.dep, arr: best.arr, seats: best.seats,\n    link: 'https://mrbilit.com/flights/' + origin + '-' + dest + '?departureDate=' + day.shamsi,\n  };\n}\n\n// علی‌بابا و مستربلیط فقط برای داخلی قابل‌اعتمادن؛ خارجی فقط فلای‌تودی\nasync function liveResultMessages(session) {\n  const isIntlTrip = session.tripType === 'international';\n  const origin = flightCityCode(session.origin.city, session.tripType);\n  const dest = flightCityCode(session.dest.city, session.tripType);\n  const originLabel = session.origin.city, destLabel = session.dest.city;\n\n  if (!origin || !dest) {\n    return [\n      { text: '<b>' + originLabel + ' ← ' + destLabel + '</b>\\nبرای این مسیر هنوز به سایت‌ها وصل نشدیم.' },\n      { text: 'برای جست‌وجوی دیگه از دکمه زیر استفاده کن.', keyboard: [[{ text: 'جستجوی جدید', callback_data: 'search' }]] },\n    ];\n  }\n\n  const days = targetDates();\n  const minDeparture = tehranNow().getTime() + 2 * 3600 * 1000;\n\n  let alibabaItems = [];\n  let alibabaFailed = true;\n  if (!isIntlTrip) {\n    alibabaFailed = false;\n    try { alibabaItems = await fetchAlibaba.call(this, origin, dest); } catch (e) { alibabaFailed = true; }\n  }\n\n  const flytodayResults = [];\n  for (const day of days) {\n    try { flytodayResults.push(await fetchFlytodayForDate.call(this, origin, dest, day, !isIntlTrip)); }\n    catch (e) { flytodayResults.push('error'); }\n  }\n\n  let mrbilitResults = days.map(() => 'error');\n  if (!isIntlTrip) {\n    mrbilitResults = [];\n    for (const day of days) {\n      try { mrbilitResults.push(await fetchMrbilitForDate.call(this, origin, dest, day)); }\n      catch (e) { mrbilitResults.push('error'); }\n    }\n  }\n\n  const winners = days.map(function (day, i) {\n    const a = alibabaFailed ? null : alibabaForDate(alibabaItems, day, origin, dest);\n    const fRaw = flytodayResults[i];\n    const f = fRaw === 'error' ? null : fRaw;\n    const mRaw = mrbilitResults[i];\n    const m = mRaw === 'error' ? null : mRaw;\n    let w = pickWinner([a, f, m]);\n    if (w && toAbsoluteMs(w.dep) < minDeparture) w = null;\n    const allFailed = alibabaFailed && fRaw === 'error' && mRaw === 'error';\n    return { day, winner: w, bothFailed: allFailed };\n  });\n\n  const validToman = winners.filter(x => x.winner).map(x => x.winner.toman);\n  const globalCheapest = validToman.length ? Math.min.apply(null, validToman) : null;\n\n  const out = [{ text: '<b>' + originLabel + ' ← ' + destLabel + '</b>\\nارزون‌ترین بلیط هر روز در ۳ روز آینده (داده‌ی زنده):' }];\n  winners.forEach(function (x) {\n    if (x.bothFailed) {\n      out.push({ text: '🔴 <b>' + x.day.label + '</b>\\nدریافت قیمت با مشکل مواجه شد، دوباره امتحان کن.' });\n      return;\n    }\n    if (!x.winner) {\n      out.push({ text: '🔴 <b>' + x.day.label + '</b>\\nپروازی پیدا نشد.' });\n      return;\n    }\n    const dep = faDigits(x.winner.dep.slice(11, 16));\n    const arr = faDigits(x.winner.arr.slice(11, 16));\n    const tag = x.winner.toman === globalCheapest ? ' (ارزون‌ترین)' : '';\n    const msg = { text: '🟢 <b>' + x.day.label + '</b>\\nساعت ' + dep + ' تا ' + arr + '\\n<b>' + fmtToman(x.winner.toman) + ' تومان</b>' + tag };\n    if (x.winner.link) msg.keyboard = [[{ text: 'لینک خرید', url: x.winner.link }]];\n    out.push(msg);\n  });\n  out.push({ text: 'قیمت‌ها برای هر بزرگسال است و ممکن است هر لحظه تغییر کند.', keyboard: [[{ text: 'جستجوی جدید', callback_data: 'search' }]] });\n  return out;\n}\n\nfunction quickCityButtons(session, excludeCity) {\n  let list;\n  if (session.tripType === 'international') {\n    list = session.step === 'dest'\n      ? (session.origin && !isIntlCity(session.origin.city) ? QUICK_INTL : QUICK)\n      : QUICK_ORIGIN_INTL;\n  } else {\n    list = QUICK;\n  }\n  list = list.filter(c => c !== excludeCity);\n  const act = session.step === 'dest' ? 'd' : 'o';\n  const rows = [];\n  for (let i = 0; i < list.length; i += 2) {\n    rows.push(list.slice(i, i + 2).map(c => ({ text: c, callback_data: act + ':' + c })));\n  }\n  return rows;\n}\n\nconst WELCOME_TEXT =\n  'سلام، به <b>جانمون ✈️</b> خوش اومدی.\\n\\n' +\n  'من ارزون‌ترین بلیط هواپیما را برای ۳ روز آینده در مسیری که بگی پیدا میکنم و لینک خرید را برات میفرستم.\\n\\n' +\n  'من بلیط نمیفروشم، فقط قیمت‌ها را مقایسه میکنم و تو را به سایت فروش میفرستم.\\n\\n' +\n  'برای شروع، دکمه‌ی زیر را بزن!';\nconst HELP_TEXT =\n  'راهنما:\\n۱. مبدأ و مقصد را انتخاب کن یا اسمشان را بنویس.\\n۲. من ارزون‌ترین بلیط ۳ روز آینده را پیدا می‌کنم.\\n' +\n  '۳. با دکمه‌ی لینک، به سایت فروش می‌روی و خودت خرید می‌کنی.\\n\\nقبل از ساعت ۲۱ روز جاری هم حساب می‌شود؛ بعد از آن جستجو از فردا شروع می‌شود.';\nconst START_KB = [[{ text: 'جستجوی ارزون‌ترین پرواز', callback_data: 'search' }], [{ text: 'راهنما', callback_data: 'help' }]];\n\n// ================== شروع پردازش آپدیت ==================\nconst staticData = $getWorkflowStaticData('global');\nstaticData.sessions = staticData.sessions || {};\n\nconst isCallback = !!update.callback_query;\nconst isMessage = !!update.message;\n\nif (!isCallback && !isMessage) return []; // آپدیت‌های ناشناخته (edited_message و ...) نادیده گرفته میشن\n\nconst chatId = isCallback ? update.callback_query.message.chat.id : update.message.chat.id;\nconst text = isMessage && typeof update.message.text === 'string' ? update.message.text : null;\nconst callbackData = isCallback ? update.callback_query.data : null;\n\n// جواب دادن به callback_query تا اسپینر روی دکمه قطع بشه (fire and forget)\nif (isCallback) {\n  try {\n    await this.helpers.httpRequest({\n      method: 'POST',\n      url: `https://api.telegram.org/bot${BOT_TOKEN}/answerCallbackQuery`,\n      body: { callback_query_id: update.callback_query.id },\n      json: true,\n    });\n  } catch (e) { /* بی‌اهمیت */ }\n}\n\nlet session = staticData.sessions[chatId] || { step: null, origin: null, dest: null, tripType: null };\n\nlet action = null, value = null;\nif (!isCallback && text && text.trim() === '/start') {\n  action = 'start';\n} else if (isCallback) {\n  const idx = callbackData.indexOf(':');\n  const act = idx === -1 ? callbackData : callbackData.slice(0, idx);\n  const val = idx === -1 ? null : callbackData.slice(idx + 1);\n  if (act === 'search' || act === 'new') action = 'search';\n  else if (act === 't') { action = 'triptype'; value = val === 'i' ? 'international' : 'domestic'; }\n  else if (act === 'o') { action = 'origin'; value = val; }\n  else if (act === 'd') { action = 'dest'; value = val; }\n  else if (act === 'help') action = 'help';\n  else if (act === 'nolink') action = 'nolink';\n} else if (isMessage && text) {\n  action = 'typed'; value = text;\n} else {\n  return []; // پیام غیرمتنی (عکس، استیکر و ...) رو نادیده می‌گیریم\n}\n\nconst messages = []; // { text, keyboard? }\n\nif (action === 'start') {\n  session = { step: null, origin: null, dest: null, tripType: null };\n  messages.push({ text: WELCOME_TEXT, keyboard: START_KB });\n} else if (action === 'search') {\n  session = { step: 'triptype', origin: null, dest: null, tripType: null };\n  messages.push({ text: 'پرواز داخلی می‌خوای یا خارجی؟', keyboard: [[{ text: 'داخلی', callback_data: 't:d' }, { text: 'خارجی', callback_data: 't:i' }]] });\n} else if (action === 'triptype') {\n  session.tripType = value;\n  session.step = 'origin';\n  messages.push({ text: 'مبدأ را انتخاب کن، یا اسم شهر یا فرودگاه را بنویس:', keyboard: quickCityButtons(session, null) });\n} else if (action === 'origin') {\n  session.origin = { city: value };\n  session.step = 'dest';\n  messages.push({ text: 'مبدأ: <b>' + value + '</b>\\nحالا مقصد را انتخاب کن، یا اسمش را بنویس:', keyboard: quickCityButtons(session, value) });\n} else if (action === 'dest') {\n  if (session.origin && value === session.origin.city) {\n    messages.push({ text: 'مبدأ و مقصد نمی‌توانند یکی باشند. مقصد دیگری انتخاب کن یا بنویس:', keyboard: quickCityButtons(session, value) });\n  } else {\n    session.dest = { city: value };\n    session.step = null;\n    const days0 = targetDates();\n    messages.push({ text: 'در حال جستجوی زنده برای ۳ روز آینده (' + days0[0].label + ' تا ' + days0[2].label + ')...' });\n    const results = await liveResultMessages.call(this, session);\n    messages.push(...results);\n  }\n} else if (action === 'help') {\n  messages.push({ text: HELP_TEXT, keyboard: [[{ text: 'جستجوی ارزون‌ترین پرواز', callback_data: 'search' }]] });\n} else if (action === 'nolink') {\n  messages.push({ text: 'لینک پروازهای این مسیر هنوز مشخص نشده است.' });\n} else if (action === 'typed') {\n  if (session.step === 'origin' || session.step === 'dest') {\n    const found = searchCities(value, session);\n    if (found.length) {\n      const act = session.step === 'dest' ? 'd' : 'o';\n      messages.push({ text: 'این‌ها را پیدا کردم. یکی را انتخاب کن:', keyboard: found.map(c => [{ text: c, callback_data: act + ':' + c }]) });\n    } else {\n      messages.push({ text: 'چیزی پیدا نکردم. اسم شهر یا فرودگاه را دوباره بنویس، یا از دکمه‌ها انتخاب کن:', keyboard: quickCityButtons(session, session.origin ? session.origin.city : null) });\n    }\n  } else {\n    messages.push({ text: 'برای شروع، دکمه‌ی زیر را بزن.', keyboard: [[{ text: 'جستجوی ارزون‌ترین پرواز', callback_data: 'search' }]] });\n  }\n}\n\nstaticData.sessions[chatId] = session;\n\nreturn messages.map(function (m) {\n  const body = { chat_id: chatId, text: m.text, parse_mode: 'HTML' };\n  if (m.keyboard) body.reply_markup = { inline_keyboard: m.keyboard };\n  return { json: { botToken: BOT_TOKEN, body: body } };\n});\n"
+      },
+      "id": "15785eca-90c8-48c6-b744-4342dd176575",
+      "name": "جانمون Brain",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        560,
+        672
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $json.botToken }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          }
+        }
+      },
+      "id": "a86e7516-029e-42bd-803a-46ae5ff4199d",
+      "name": "Send Telegram Message",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        832,
+        672
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Config": {
+      "main": [
+        [
+          {
+            "node": "جانمون Brain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "جانمون Brain": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "6e31623a-6bb1-42cd-8236-1da46a69eff1",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7e96663b1315d69bd686aa0f10c9031944a3f96712f7052205a4ddb181ace62e"
+  },
+  "nodeGroups": [],
+  "id": "u7lBNNWZhlInTKhd",
+  "tags": []
+}
