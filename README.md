@@ -5,6 +5,9 @@ The user sends an origin and destination, the bot returns the best-priced flight
 
 > The bot doesn't sell tickets, it only searches. Built as a portfolio project to practice bot building and automation with n8n.
 
+## Demo
+[▶ Watch the demo video](demo/janamoon-demo.mp4)
+
 ## Features
 - 🔎 Cheapest-flight search, domestic and international (to/from Iran)
 - 📅 3-day search window
